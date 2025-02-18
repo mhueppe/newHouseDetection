@@ -83,10 +83,12 @@ def detect_new_house(img1, img2, threshold: float = 0.3):
 def index():
     if request.method == 'POST':
         address = request.form['address']
+        year1 = request.form['year1']
+        year2 = request.form['year2']
         try:
             bbox = geocode_address_nominatim(address)
             bbox = lat, lon = expand_bounding_box(bbox)
-            years = [2020, 2022, 2024]
+            years = [int(year1), int(year2)]
             imgs = [getImage(lat, lon, year=y) for y in years]
 
             ref_img = imgs[-1]

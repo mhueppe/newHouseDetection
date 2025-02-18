@@ -5,21 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satellite Image Analysis</title>
     <style>
-        /* Styles for the image container */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+        }
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        input[type="text"],
+        input[type="number"],
+        button {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: calc(100% - 22px);
+            margin-top: 10px;
+        }
+        button {
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #004494;
+        }
         .image-container {
             display: flex;
-            flex-wrap: nowrap; /* Prevent wrapping to the next line */
-            overflow-x: auto;  /* Allows horizontal scrolling if needed */
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            margin-top: 20px;
         }
         .image-container > div {
-            flex: 1 1 auto; /* Allow images to grow and shrink together */
-            min-width: 100px; /* Minimum width for each image block */
-            margin: 10px; /* Adds some space around the images */
+            flex: 1 1 auto;
+            min-width: 200px;
+            margin: 10px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
         img {
-            width: 100%; /* Make images fill their container */
-            height: auto; /* Maintain aspect ratio */
-            display: block; /* Prevent bottom space caused by inline-block */
+            width: 100%;
+            height: auto;
+            display: block;
+            border-bottom: 1px solid #ddd;
+        }
+        h3 {
+            text-align: center;
+            margin: 10px 0;
+        }
+        /* New styles for detection display */
+        .detection-message {
+            text-align: center; /* Center text */
+            margin: 20px auto; /* Add margin */
+        }
+        .status-box {
+            display: inline-block; /* To center the box */
+            border-radius: 20px; /* Round corners */
+            padding: 10px 20px; /* Spacing inside the box */
+            color: white; /* White text */
+            font-weight: bold;
+        }
+        .yes {
+            background-color: #28a745; /* Green background */
+        }
+        .no {
+            background-color: #dc3545; /* Red background */
         }
     </style>
 </head>
@@ -27,7 +91,14 @@
     <h1>Satellite Image Analysis for New Houses</h1>
     <form method="post">
         <label for="address">Enter Address:</label>
-        <input type="text" id="address" name="address" required>
+        <input type="text" id="address" name="address" value="Pater-Gahlen-Straße 10, 46244 Germany" required>
+
+        <label for="year1">Compare Year:</label>
+        <input type="number" id="year1" name="year1" min="2006" max="2024" value="2022" required>
+
+        <label for="year2">to:</label>
+        <input type="number" id="year2" name="year2" min="2020" max="2024" value="2024" required>
+
         <button type="submit">Analyze</button>
     </form>
 
@@ -35,12 +106,18 @@
     <p style="color: red;">Error: {{ error }}</p>
     {% endif %}
 
-    <h2>New House Detection:</h2>
-    <p>New house detected: {{ new_house_detected }}</p>
-    <p>House Match: {{ houseMatch }}</p>
+     {% if new_house_detected %}
+    <h2 style="text-align: center;">New House Detection:</h2>
+    <div class="detection-message">
+        <span class="status-box {{ 'yes' if new_house_detected == 'Yes' else 'no' }}">
+            {{ new_house_detected }}
+        </span>
+    </div>
+    <p style="text-align: center;">House Match: {{ houseMatch }}</p>
+    {% endif %}
 
     {% if imgs %}
-    <h2>Satellite Images for Selected Years:</h2>
+    <h2 style="text-align: center;">Satellite Images for Selected Years:</h2>
     <div class="image-container">
         {% for img, year in zip(imgs, years) %}
             <div>
@@ -49,9 +126,6 @@
             </div>
         {% endfor %}
     </div>
-
-    <h3>Template match:</h3>
-    <img src="data:image/jpeg;base64,{{ diff_image|to_base64 }}" alt="Difference Image">
     {% endif %}
 </body>
 </html>
