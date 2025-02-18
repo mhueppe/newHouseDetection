@@ -123,6 +123,7 @@ def index():
 
             address_column = request.form["address_column"]
             year1, year2 = int(request.form["year1"]), int(request.form["year2"])
+            yearBetween = (year1+year2)//2
             results = []
             transformer = Transformer.from_crs("EPSG:4326", "EPSG:25832")
 
@@ -135,7 +136,7 @@ def index():
                 print(bbox)
 
                 printDuration(f"Get BBOX {address}")
-                years = [int(year1), int(year2)]
+                years = [int(year1), int(yearBetween), int(year2)]
                 imgs = [getImage(lat, lon, year=y) for y in years]
                 printDuration(f"Get images {address}")
 
@@ -152,13 +153,14 @@ def index():
 
                 results.append({
                     "address": address,
-                    "img1": imgs[-2],
-                    "img2": imgs[-1],
+                    "img1": imgs[0],
+                    "img2": imgs[1],
+                    "img3": imgs[-1],
                     "new_house": new_house_detected,
                     "match_value": houseMatch
                 })
 
-            return render_template("index.html", results=results, year1=year1, year2=year2)
+            return render_template("index.html", results=results, year1=year1, year2=yearBetween, year3=year2)
 
     return render_template("index.html")
 
