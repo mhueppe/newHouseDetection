@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satellite Image Analysis</title>
+    <style>
+        /* Styles for the image container */
+        .image-container {
+            display: flex;
+            flex-wrap: nowrap; /* Prevent wrapping to the next line */
+            overflow-x: auto;  /* Allows horizontal scrolling if needed */
+        }
+        .image-container > div {
+            flex: 1 1 auto; /* Allow images to grow and shrink together */
+            min-width: 100px; /* Minimum width for each image block */
+            margin: 10px; /* Adds some space around the images */
+        }
+        img {
+            width: 100%; /* Make images fill their container */
+            height: auto; /* Maintain aspect ratio */
+            display: block; /* Prevent bottom space caused by inline-block */
+        }
+    </style>
 </head>
 <body>
     <h1>Satellite Image Analysis for New Houses</h1>
@@ -23,14 +41,16 @@
 
     {% if imgs %}
     <h2>Satellite Images for Selected Years:</h2>
-    <div>
+    <div class="image-container">
         {% for img, year in zip(imgs, years) %}
-            <h3>{{ year }}</h3>
-            <img src="data:image/jpeg;base64,{{ img|to_base64 }}" alt="Image for {{ year }}">
+            <div>
+                <h3>{{ year }}</h3>
+                <img src="data:image/jpeg;base64,{{ img|to_base64 }}" alt="Image for {{ year }}">
+            </div>
         {% endfor %}
     </div>
 
-    <h3>Difference Image (Where New House May Have Appeared):</h3>
+    <h3>Template match:</h3>
     <img src="data:image/jpeg;base64,{{ diff_image|to_base64 }}" alt="Difference Image">
     {% endif %}
 </body>
