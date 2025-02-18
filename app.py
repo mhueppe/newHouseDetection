@@ -1,3 +1,11 @@
+import os
+import base64
+import time
+
+import pandas as pd
+import requests
+from flask import Flask, render_template, request
+from io import BytesIO
 from flask import Flask, render_template, request
 import requests
 from pyproj import Transformer
@@ -7,9 +15,11 @@ from PIL import Image
 import cv2
 
 app = Flask(__name__)
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-
-def geocode_address_nominatim(address):
+last_call = time.time()
+def geocode_address_nominatim(address, transformer):
     """ Get latitude and longitude using Nominatim API """
     url = "https://nominatim.openstreetmap.org/search"
     headers = {
@@ -29,11 +39,15 @@ def geocode_address_nominatim(address):
         raise ValueError("Address not found.")
 
     location = data[0]
-    transformer = Transformer.from_crs("EPSG:4326", "EPSG:25832")
     bbox = [float(l) for l in location["boundingbox"]]
     return transformer.transform(bbox[:2], bbox[2:])
 
-
+def printDuration(msg):
+    global last_call
+    now = time.time()
+    duration = now - last_call
+    print(f"{msg}  | {duration}")
+    last_call = now
 def expand_bounding_box(bbox, e_v=10):
     (north, south), (east, west) = bbox
     return [north - e_v, south + e_v], [east - e_v, west + e_v]
@@ -78,31 +92,76 @@ def detect_new_house(img1, img2, threshold: float = 0.3):
 
     return output, np.max(result)
 
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def index():
-    if request.method == 'POST':
-        address = request.form['address']
-        year1 = request.form['year1']
-        year2 = request.form['year2']
-        try:
-            bbox = geocode_address_nominatim(address)
-            bbox = lat, lon = expand_bounding_box(bbox)
-            years = [int(year1), int(year2)]
-            imgs = [getImage(lat, lon, year=y) for y in years]
+    if request.method == "POST":
+        if "file" in request.files:
+            # Step 1: File Upload
+            file = request.files["file"]
+            if file.filename == "":
+                return render_template("index.html", error="No file selected.")
 
-            ref_img = imgs[-1]
-            threshold = 0.3
-            diff_image, max_val = detect_new_house(imgs[-1], imgs[-2], threshold)
-            new_house_detected = "Yes" if max_val < threshold else "No"
-            houseMatch = max_val
-            return render_template('index.html', imgs=imgs, years=years, new_house_detected=new_house_detected,
-                                   diff_image=diff_image, houseMatch = houseMatch, zip=zip)
+            file_ext = file.filename.split(".")[-1].lower()
+            if file_ext not in ["csv", "xls", "xlsx"]:
+                return render_template("index.html", error="Invalid file format.")
 
-        except ValueError as e:
-            return render_template('index.html', error=str(e))
+            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+            file.save(file_path)
 
-    return render_template('index.html')
+            # Step 2: Read File and Extract Columns
+            df = pd.read_csv(file_path) if file_ext == "csv" else pd.read_excel(file_path)
+            return render_template("index.html", columns=df.columns)
+
+        elif "address_column" in request.form:
+            # Step 3: Process Selected Column & Analyze Addresses
+            file_uploaded = request.form.get("file_uploaded")
+            if not file_uploaded:
+                return render_template("index.html", error="Upload a file first.")
+
+            file_path = os.path.join(UPLOAD_FOLDER, os.listdir(UPLOAD_FOLDER)[0])
+            df = pd.read_csv(file_path) if file_path.endswith(".csv") else pd.read_excel(file_path)
+
+            address_column = request.form["address_column"]
+            year1, year2 = int(request.form["year1"]), int(request.form["year2"])
+            results = []
+            transformer = Transformer.from_crs("EPSG:4326", "EPSG:25832")
+
+            for address in df[address_column].dropna().unique():
+                printDuration(f"Start {address}")
+
+                bbox = geocode_address_nominatim(address, transformer)
+                print(bbox)
+                bbox = lat, lon = expand_bounding_box(bbox)
+                print(bbox)
+
+                printDuration(f"Get BBOX {address}")
+                years = [int(year1), int(year2)]
+                imgs = [getImage(lat, lon, year=y) for y in years]
+                printDuration(f"Get images {address}")
+
+                threshold = 0.3
+
+                diff_image, max_val = detect_new_house(imgs[-1], imgs[-2], threshold)
+                new_house_detected = "Yes" if max_val < threshold else "No"
+                houseMatch = max_val
+                # return render_template('index.html', imgs=imgs, years=years, new_house_detected=new_house_detected,
+                #                        diff_image=diff_image, houseMatch=houseMatch, zip=zip)
+                printDuration(f"Evaluated {address}")
+                imgs = [image_to_base64(img) for img in imgs]
+                printDuration(f"Convert images {address}")
+
+                results.append({
+                    "address": address,
+                    "img1": imgs[-2],
+                    "img2": imgs[-1],
+                    "new_house": new_house_detected,
+                    "match_value": houseMatch
+                })
+
+            return render_template("index.html", results=results, year1=year1, year2=year2)
+
+    return render_template("index.html")
+
 
 from io import BytesIO
 import base64
@@ -118,5 +177,6 @@ def image_to_base64(img):
 def to_base64_filter(img):
     return image_to_base64(img)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True)
